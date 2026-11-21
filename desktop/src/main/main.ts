@@ -45,6 +45,10 @@ const BRAND_LOGO_URL = 'https://cdn.discordapp.com/icons/1569579754565148783/0b9
 // Vodoo Discord davet linki ortam degiskeniyle verilir; bos ise davet
 // butonlari/alanlari hic olusturulmaz (baska bir topluluga yonlendirme yok).
 const BRAND_DISCORD_INVITE = process.env.VODOO_DISCORD_INVITE_URL || 'https://discord.gg/vodoo';
+// Yerel Discord bot koprusu (port 9864) ilk surumde KAPALI. Sunucu tarafi
+// begenirse VODOO_BOT_SERVER=1 ile tek satirda geri acilir; UI satiri da
+// index.html'de ayni sekilde geri eklenir.
+const BOT_SERVER_ENABLED = process.env.VODOO_BOT_SERVER === '1';
 audioEngine.setAdblockEnabled(initialSettings.adblockEnabled !== false).catch(() => {});
 // Aninda baslatma: YT sayfasi isinirken dogrudan akisla sesi hemen ver
 audioEngine.setStreamProvider(async (videoId: string) => {
@@ -470,32 +474,34 @@ app.whenReady().then(async () => {
   // Apply initial volume
   audioEngine.setVolume(initialSettings.volume || 0.8);
 
-  // Start local Bot REST API
-  await botServer.start();
-  botServer.setControlCallback((action, payload) => {
-    // Henuz hic parca secilmediyse play/resume motoru direkt calistirmaz:
-    // prewarm videosu hayalet parca olurdu. Bunun yerine renderer kuyruga karar verir.
-    if (!currentTrack && (action === 'play' || action === 'resume')) {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        // Renderer yalnizca 'play' aksiyonunu anlar; alias'i normalize et
-        mainWindow.webContents.send('bot:remote-control', 'play', payload);
+  // Start local Bot REST API (varsayilan kapali, bkz. BOT_SERVER_ENABLED)
+  if (BOT_SERVER_ENABLED) {
+    await botServer.start();
+    botServer.setControlCallback((action, payload) => {
+      // Henuz hic parca secilmediyse play/resume motoru direkt calistirmaz:
+      // prewarm videosu hayalet parca olurdu. Bunun yerine renderer kuyruga karar verir.
+      if (!currentTrack && (action === 'play' || action === 'resume')) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          // Renderer yalnizca 'play' aksiyonunu anlar; alias'i normalize et
+          mainWindow.webContents.send('bot:remote-control', 'play', payload);
+        }
+        return;
       }
-      return;
-    }
-    if (action === 'play' || action === 'resume') {
-      audioEngine.resume();
-      // Discord presence'i aninda yansit: poll'a birakmak isAd/bot duraginda
-      // "hâlâ çalıyor" goruntusunu birakiyordu.
-      if (currentTrack) discordRpc.update(currentTrack, 'playing', partyLocal.position || 0);
-    } else if (action === 'pause') {
-      audioEngine.pause();
-      if (currentTrack) discordRpc.update(currentTrack, 'paused', partyLocal.position || 0);
-    } else if (action === 'volume' && typeof payload === 'number') audioEngine.setVolume(payload);
-    else if (action === 'seek' && typeof payload === 'number') audioEngine.seek(payload);
-    else if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('bot:remote-control', action, payload);
-    }
-  });
+      if (action === 'play' || action === 'resume') {
+        audioEngine.resume();
+        // Discord presence'i aninda yansit: poll'a birakmak isAd/bot duraginda
+        // "hâlâ çalıyor" goruntusunu birakiyordu.
+        if (currentTrack) discordRpc.update(currentTrack, 'playing', partyLocal.position || 0);
+      } else if (action === 'pause') {
+        audioEngine.pause();
+        if (currentTrack) discordRpc.update(currentTrack, 'paused', partyLocal.position || 0);
+      } else if (action === 'volume' && typeof payload === 'number') audioEngine.setVolume(payload);
+      else if (action === 'seek' && typeof payload === 'number') audioEngine.seek(payload);
+      else if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('bot:remote-control', action, payload);
+      }
+    });
+  }
 
   // Connect Discord RPC
   discordRpc.connect().catch(() => {});
