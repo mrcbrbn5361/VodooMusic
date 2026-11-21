@@ -21,7 +21,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrcbrbn5361/VodoMusic.git"
+    "url": "git+https://github.com/mrcbrbn5361/VodooMusic.git"
   },
   "allowScripts": {
     "electron@28.3.3": true,

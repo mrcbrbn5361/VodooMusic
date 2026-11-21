@@ -247,7 +247,7 @@ export class LyricsManager {
 
       let resp = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
         headers: {
-          'User-Agent': 'VodoMusic/1.0.0 (https://github.com/mrcbrbn5361/VodoMusic)'
+          'User-Agent': 'VodooMusic/1.0.0 (https://github.com/mrcbrbn5361/VodooMusic)'
         },
         signal: controller.signal
       }).catch(() => null);
@@ -259,7 +259,7 @@ export class LyricsManager {
         const query = `${cleanArtist} ${cleanTitle}`.trim();
         const searchResp = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
           headers: {
-            'User-Agent': 'VodoMusic/1.0.0 (https://github.com/mrcbrbn5361/VodoMusic)'
+            'User-Agent': 'VodooMusic/1.0.0 (https://github.com/mrcbrbn5361/VodooMusic)'
           },
           signal: controller.signal
         }).catch(() => null);

@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrcbrbn5361/VodoMusic.git"
+    "url": "git+https://github.com/mrcbrbn5361/VodooMusic.git"
   },
   "engines": {
     "node": ">=18"
@@ -43,7 +43,7 @@
       {
         "provider": "github",
         "owner": "mrcbrbn5361",
-        "repo": "VodoMusic"
+        "repo": "VodooMusic"
       }
     ],
     "appId": "com.vodoo.music",
@@ -90,7 +90,15 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Vodoo Music",
-      "artifactName": "Vodoo-Music-Setup-${version}-win11.${ext}",
+      "artifactName": "Vodoo-Music-Setup-${version}-win-x64.${ext}",
+      "installerLanguages": [
+        "tr_TR",
+        "en_US"
+      ],
+      "multiLanguageInstaller": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "uninstallDisplayName": "Vodoo Music",
       "installerSidebar": "assets/installerSidebar.bmp",
       "uninstallerSidebar": "assets/uninstallerSidebar.bmp",
       "installerHeader": "assets/installerHeader.bmp",
@@ -99,7 +107,7 @@
       "uninstallerIcon": "assets/icon.ico"
     },
     "portable": {
-      "artifactName": "Vodoo-Music-Portable-${version}-win11.${ext}",
+      "artifactName": "Vodoo-Music-Portable-${version}-win-x64.${ext}",
       "requestExecutionLevel": "user"
     },
     "mac": {
@@ -107,27 +115,39 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
-            "arm64"
+            "universal"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64",
-            "arm64"
+            "universal"
           ]
         }
       ],
       "icon": "assets/icon.png",
       "category": "public.app-category.music",
-      "artifactName": "Vodoo-Music-${version}-mac-${arch}.${ext}",
+      "artifactName": "Vodoo-Music-${version}-mac-universal.${ext}",
+      "minimumSystemVersion": "10.15.0",
+      "hardenedRuntime": false,
       "identity": null,
       "gatekeeperAssess": false
     },
     "dmg": {
-      "artifactName": "Vodoo-Music-${version}-mac-${arch}.${ext}",
-      "title": "Vodoo Music"
+      "artifactName": "Vodoo-Music-${version}-mac-universal.${ext}",
+      "title": "Vodoo Music",
+      "contents": [
+        {
+          "x": 140,
+          "y": 200
+        },
+        {
+          "x": 400,
+          "y": 200,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
   }
 }

@@ -116,7 +116,7 @@ function page(title, artist, thumb, id, t, errorMsg, room, listeners) {
     ${listeners > 0 ? `<div class="pos">👥 Şu anda <b>${esc(String(listeners))} kişi</b> birlikte dinliyor</div>` : ''}
     <div class="actions">
       <button class="btn btn-primary" id="join" type="button">${room ? '✨ Birlikte Dinle' : "✨ Vodoo Music'te Katıl"}</button>
-      <a class="btn btn-ghost" href="https://github.com/mrcbrbn5361/VodoMusic/releases" target="_blank" rel="noopener">🚀 Uygulamayı İndir</a>
+      <a class="btn btn-ghost" href="https://github.com/mrcbrbn5361/VodooMusic/releases" target="_blank" rel="noopener">🚀 Uygulamayı İndir</a>
     </div>
     <div class="hint" id="hint">
       ${room
@@ -162,7 +162,7 @@ async function fetchMeta(id) {
     const watchUrl = `https://www.youtube.com/watch?v=${id}`;
     const res = await fetch(
       `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`,
-      { signal: ctrl.signal, headers: { 'User-Agent': 'VodoMusic/1.0' } }
+      { signal: ctrl.signal, headers: { 'User-Agent': 'VodooMusic/1.0' } }
     );
     clearTimeout(timer);
     if (!res.ok) return fallback;

@@ -310,7 +310,7 @@ export class DiscordRpcManager {
 
       const assets = {
         large_image: largeImage,
-        large_text: `${(album || track.title || 'Vodoo Music').slice(0, 60)} • github.com/mrcbrbn5361/VodoMusic`.slice(0, 128),
+        large_text: `${(album || track.title || 'Vodoo Music').slice(0, 60)} • github.com/mrcbrbn5361/VodooMusic`.slice(0, 128),
         small_image: defaultLogo,
         small_text: isPlaying ? 'Çalıyor • Vodoo Music' : '⏸️ Duraklatıldı • Vodoo Music'
       };

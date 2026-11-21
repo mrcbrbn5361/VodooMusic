@@ -6,8 +6,8 @@
   <h3>Next-Generation Luxury Desktop Music Streaming Platform</h3>
   <p>Obsidian Dark & Neon Magenta/Purple Aesthetic • YouTube Music Engine • Discord Rich Presence</p>
 
-  [![Version](https://img.shields.io/badge/version-1.0.0-f43f5e.svg?style=for-the-badge)](https://github.com/mrcbrbn5361/VodoMusic/releases)
-  [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8b5cf6.svg?style=for-the-badge)](https://github.com/mrcbrbn5361/VodoMusic/releases)
+  [![Version](https://img.shields.io/badge/version-1.0.0-f43f5e.svg?style=for-the-badge)](https://github.com/mrcbrbn5361/VodooMusic/releases)
+  [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8b5cf6.svg?style=for-the-badge)](https://github.com/mrcbrbn5361/VodooMusic/releases)
   [![Discord](https://img.shields.io/badge/Discord-Vodoo%20Guild-5865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/Rma8w8JrQH)
   [![License](https://img.shields.io/badge/license-MIT-ec4899.svg?style=for-the-badge)](#license)
 </div>
@@ -31,7 +31,7 @@
 
 ## 📥 Downloads & Installation
 
-Visit the [Releases](https://github.com/mrcbrbn5361/VodoMusic/releases) page to download the latest version:
+Visit the [Releases](https://github.com/mrcbrbn5361/VodooMusic/releases) page to download the latest version:
 
 | Package | Platform | Description |
 |---|---|---|
@@ -49,8 +49,8 @@ Visit the [Releases](https://github.com/mrcbrbn5361/VodoMusic/releases) page to 
 
 ### Clone & Install
 ```bash
-git clone https://github.com/mrcbrbn5361/VodoMusic.git
-cd VodoMusic
+git clone https://github.com/mrcbrbn5361/VodooMusic.git
+cd VodooMusic
 npm install
 ```
 
