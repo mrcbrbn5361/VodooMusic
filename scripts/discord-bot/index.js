@@ -21,7 +21,7 @@ const { renderPlayerCard } = require('./cardRenderer');
 const TOKEN = (process.env.DISCORD_TOKEN || '').trim();
 const VODOO_APP_ID = process.env.DISCORD_CLIENT_ID || '';
 const VODOO_GUILD_ID = process.env.DISCORD_GUILD_ID || '';
-const VODOO_INVITE_URL = process.env.DISCORD_INVITE_URL || '';
+const VODOO_INVITE_URL = process.env.DISCORD_INVITE_URL || 'https://discord.gg/vodoo';
 
 // Anti-Spam Cooldown
 const cooldowns = new Map();

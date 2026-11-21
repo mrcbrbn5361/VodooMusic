@@ -10,7 +10,7 @@ import type { Track, PlaybackStatus } from '../../types/index.js';
 // degiskeni veya Ayarlar > Gelismis alani bunu gecersiz kilabilir.
 const DEFAULT_CLIENT_ID = process.env.VODOO_DISCORD_CLIENT_ID || '1573308502028460072';
 // Topluluk daveti istege bagli; bos ise buton eklenmez.
-const DISCORD_INVITE_URL = process.env.VODOO_DISCORD_INVITE_URL || '';
+const DISCORD_INVITE_URL = process.env.VODOO_DISCORD_INVITE_URL || 'https://discord.gg/vodoo';
 
 export class DiscordRpcManager {
   private rpc: RPC.Client | null = null;

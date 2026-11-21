@@ -44,7 +44,7 @@ const PARTY_RELAY = process.env.VODOO_PARTY_RELAY || 'https://vodoomusic.vercel.
 const BRAND_LOGO_URL = 'https://cdn.discordapp.com/icons/1569579754565148783/0b9fd504cded5e6afcec6a552bf832ec.png';
 // Vodoo Discord davet linki ortam degiskeniyle verilir; bos ise davet
 // butonlari/alanlari hic olusturulmaz (baska bir topluluga yonlendirme yok).
-const BRAND_DISCORD_INVITE = process.env.VODOO_DISCORD_INVITE_URL || '';
+const BRAND_DISCORD_INVITE = process.env.VODOO_DISCORD_INVITE_URL || 'https://discord.gg/vodoo';
 audioEngine.setAdblockEnabled(initialSettings.adblockEnabled !== false).catch(() => {});
 // Aninda baslatma: YT sayfasi isinirken dogrudan akisla sesi hemen ver
 audioEngine.setStreamProvider(async (videoId: string) => {
