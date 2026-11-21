@@ -1,0 +1,31 @@
+{
+  "name": "vodoo-music",
+  "version": "1.0.3",
+  "description": "Vodoo Music - Premium Luxury Music Streaming for Windows & macOS",
+  "private": true,
+  "workspaces": [
+    "desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=desktop",
+    "build": "npm run build --workspace=desktop",
+    "build:win": "npm run build:win --workspace=desktop",
+    "build:mac": "npm run build:mac --workspace=desktop",
+    "build:installer": "npm run build:installer --workspace=desktop",
+    "build:portable": "npm run build:portable --workspace=desktop",
+    "sync": "syncytium sync",
+    "sync:watch": "syncytium watch",
+    "doctor": "syncytium doctor"
+  },
+  "author": "Miraç Teksaslıoğlu",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrcbrbn5361/VodoMusic.git"
+  },
+  "allowScripts": {
+    "electron@28.3.3": true,
+    "esbuild@0.21.5": true,
+    "github:devsnek/node-register-scheme": false
+  }
+}

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build & Release outputs
+dist/
+desktop/dist/
+release/
+desktop/release/
+
+# Discord Bot & Sensitive Envs (Local only)
+scripts/discord-bot/.env
+scripts/discord-bot/node_modules/
+.env
+*.env
+*.env.*
+!scripts/discord-bot/.env.example
+
+# AI / IDE Agent & Sync configurations (Local only)
+.syncytium/
+.gemini/
+.cursor/
+.cursorrules
+.clinerules
+.traerules
+.windsurfrules
+.roomodes
+AGENT.md
+CONVENTIONS.md
+CLAUDE.md
+.github/copilot-instructions.md
+
+# Logs & System
+*.log
+release-notes-*.md
+.DS_Store
+Thumbs.db
+

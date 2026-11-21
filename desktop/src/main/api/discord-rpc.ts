@@ -1,0 +1,427 @@
+import RPC from 'discord-rpc';
+import type { Track, PlaybackStatus } from '../../types/index.js';
+
+// Vodoo Discord Application ID. Discord Developer Portal'da olusturulan
+// uygulamanin ID'si buraya yazilir; VODOO_DISCORD_CLIENT_ID ortam degiskeni
+// de ayni degeri verir (Ayarlar > Gelismis alani gecersdirmedir).
+// Bos birakilirsa Rich Presence sessizce devre disi kalir.
+// Voodoo Music Discord uygulama kimligi (Developer Portal > General Information).
+// Herkese acik bir kimliktir (sir degildir); VODOO_DISCORD_CLIENT_ID ortam
+// degiskeni veya Ayarlar > Gelismis alani bunu gecersiz kilabilir.
+const DEFAULT_CLIENT_ID = process.env.VODOO_DISCORD_CLIENT_ID || '1573308502028460072';
+// Topluluk daveti istege bagli; bos ise buton eklenmez.
+const DISCORD_INVITE_URL = process.env.VODOO_DISCORD_INVITE_URL || '';
+
+export class DiscordRpcManager {
+  private rpc: RPC.Client | null = null;
+  private isConnected: boolean = false;
+  private isConnecting: boolean = false;
+  private enabled: boolean = true;
+  private clientId: string = DEFAULT_CLIENT_ID;
+  private currentTrack: Track | null = null;
+  private currentStatus: PlaybackStatus = 'stopped';
+  private currentTime: number = 0;
+  private reconnectInterval: NodeJS.Timeout | null = null;
+  private connectGeneration: number = 0;
+  private lastActivitySentTime: number = 0;
+  private lastSentTrackId?: string;
+  private lastSentStatus?: PlaybackStatus;
+  private lastSentCurrentTime: number = 0;
+  private lastSentDuration: number = 0;
+  private throttleTimeout: NodeJS.Timeout | null = null;
+  private pendingPayload: { track: Track | null; status: PlaybackStatus; currentTime: number } | null = null;
+  private statusCallback?: (s: { connected: boolean; enabled: boolean }) => void;
+
+  constructor(enabled: boolean = true, customClientId?: string) {
+    this.enabled = enabled;
+    if (customClientId && customClientId.trim().length >= 10) {
+      this.clientId = customClientId.trim();
+    }
+    if (this.enabled && this.clientId) {
+      this.startReconnectLoop();
+    } else if (this.enabled) {
+      console.info('[DiscordRPC] Discord App ID tanimli degil; Rich Presence devre disi.');
+    }
+  }
+
+  /** Baglanti durumu degisikliklerini dinle (Ayarlar UI gostergesi icin). */
+  public setOnStatusChange(cb: (s: { connected: boolean; enabled: boolean }) => void): void {
+    this.statusCallback = cb;
+    cb({ connected: this.isConnected, enabled: this.enabled });
+  }
+
+  public getStatus(): { connected: boolean; enabled: boolean } {
+    return { connected: this.isConnected, enabled: this.enabled };
+  }
+
+  private emitStatus(): void {
+    try {
+      this.statusCallback?.({ connected: this.isConnected, enabled: this.enabled });
+    } catch {}
+  }
+
+  public async setClientId(newId?: string): Promise<void> {
+    const target = (newId && newId.trim().length >= 10) ? newId.trim() : DEFAULT_CLIENT_ID;
+    if (target === this.clientId) return;
+    this.clientId = target;
+    console.log('[DiscordRPC] Client ID updated to:', this.clientId || '(none)');
+    this.destroy();
+    if (!this.enabled || !this.clientId) {
+      this.emitStatus();
+      return;
+    }
+    this.startReconnectLoop();
+    await this.connect();
+  }
+
+  public getClientId(): string {
+    return this.clientId;
+  }
+
+  public setEnabled(val: boolean): void {
+    this.enabled = val;
+    if (!val) {
+      this.clear();
+      this.stopReconnectLoop();
+      this.destroy();
+    } else if (!this.clientId) {
+      console.info('[DiscordRPC] Discord App ID tanimli degil; Rich Presence devre disi.');
+    } else {
+      this.startReconnectLoop();
+      this.connect();
+    }
+    this.emitStatus();
+  }
+
+  private startReconnectLoop(): void {
+    if (!this.clientId || this.reconnectInterval) return;
+    this.reconnectInterval = setInterval(() => {
+      if (this.enabled && this.clientId && !this.isConnected && !this.isConnecting) {
+        this.connect().catch(() => {});
+      }
+    }, 15000);
+  }
+
+  private stopReconnectLoop(): void {
+    if (this.reconnectInterval) {
+      clearInterval(this.reconnectInterval);
+      this.reconnectInterval = null;
+    }
+  }
+
+  public async connect(): Promise<boolean> {
+    if (!this.clientId || !this.enabled || this.isConnecting || this.isConnected) return this.isConnected;
+    this.isConnecting = true;
+    const gen = ++this.connectGeneration;
+
+    try {
+      if (this.rpc) {
+        try { this.rpc.destroy(); } catch {}
+        this.rpc = null;
+      }
+
+      this.rpc = new RPC.Client({ transport: 'ipc' });
+      const client = this.rpc;
+
+      client.on('ready', () => {
+        if (gen !== this.connectGeneration) return;
+        this.isConnected = true;
+        this.isConnecting = false;
+        const appName = (client as any).application?.name || '(bilinmiyor)';
+        console.log('[DiscordRPC] ✅ Discord Rich Presence connected (App ID: ' + this.clientId + ', uygulama: ' + appName + ')');
+        this.emitStatus();
+        // Yeniden baglanti sonrasi mevcut durumu tazele (duraklatilmisken de gorunsun)
+        if (this.currentTrack && this.currentStatus !== 'stopped') {
+          this.lastSentTrackId = undefined;
+          this.lastSentStatus = undefined;
+          this.sendActivity(this.currentTrack, this.currentStatus, this.currentTime);
+        }
+      });
+
+      client.on('disconnected', () => {
+        if (gen === this.connectGeneration) {
+          this.isConnected = false;
+          this.isConnecting = false;
+          console.log('[DiscordRPC] Discord Rich Presence disconnected.');
+          this.emitStatus();
+        }
+      });
+
+      // Discord SET_ACTIVITY'yi reddederse kutuphane bunu 'error' olarak yayar;
+      // dinlenmezse sessizce yutulur ("profilde gorunmuyor" teshis edilemezdi).
+      client.on('error', (err: any) => {
+        console.warn('[DiscordRPC] Discord error:', err?.message || err);
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Discord connect timeout')), 8000)
+      );
+
+      await Promise.race([client.login({ clientId: this.clientId }), timeoutPromise]);
+      return true;
+    } catch (err) {
+      if (gen === this.connectGeneration) {
+        this.isConnected = false;
+        this.isConnecting = false;
+        try { this.rpc?.destroy(); } catch {}
+        this.rpc = null;
+        this.emitStatus();
+      }
+      return false;
+    }
+  }
+
+  public update(track: Track | null, status: PlaybackStatus, currentTime: number = 0): void {
+    this.currentTrack = track;
+    this.currentStatus = status;
+    this.currentTime = currentTime;
+
+    if (!this.enabled) return;
+
+    if (!this.isConnected || !this.rpc) {
+      if (!this.isConnecting) {
+        this.connect().catch(() => {});
+      }
+      return;
+    }
+
+    if (!track || status === 'stopped') {
+      if (this.lastSentTrackId !== undefined || this.lastSentStatus !== 'stopped') {
+        this.clear();
+      }
+      return;
+    }
+
+    // State diffing: if same track, same status, and no significant seek (seek > 3s),
+    // skip sending SET_ACTIVITY to avoid hitting Discord's 5 updates / 20 seconds rate limit!
+    const trackChanged = track.id !== this.lastSentTrackId;
+    const statusChanged = status !== this.lastSentStatus;
+    const durChanged = Math.abs((track.duration || 0) - this.lastSentDuration) > 1 && (track.duration || 0) > 0;
+    
+    // Expected time elapsed since last activity dispatch
+    const secondsSinceLastDispatch = (Date.now() - this.lastActivitySentTime) / 1000;
+    const expectedCurrentTime = this.lastSentCurrentTime + (this.lastSentStatus === 'playing' ? secondsSinceLastDispatch : 0);
+    const seekOccurred = Math.abs(currentTime - expectedCurrentTime) > 3.5;
+
+    if (!trackChanged && !statusChanged && !durChanged && !seekOccurred) {
+      // Anlik gonderim yok; AMA bekleyen kuyruk bayat kalmamali. Aksi halde
+      // pause sonrasi kuyrukta kalan 'playing' 1.5 sn sonra YANLIS gonderilir
+      // ve presence duraklatilmis olmasina ragmen 'playing'de kilitlenir
+      // (poll'lar her seferinde diff-skip ile duzeltmeyi engelliyordu).
+      const p = this.pendingPayload;
+      if (p && (p.status !== status || !p.track || p.track.id !== track.id)) {
+        this.queuePending(track, status, currentTime);
+      }
+      return;
+    }
+
+    // Discord Rate-Limit Guard (Minimum 1.5s between requests)
+    const now = Date.now();
+    const timeSinceLastSend = now - this.lastActivitySentTime;
+
+    if (timeSinceLastSend < 1500) {
+      this.queuePending(track, status, currentTime);
+      return;
+    }
+
+    if (this.throttleTimeout) {
+      clearTimeout(this.throttleTimeout);
+      this.throttleTimeout = null;
+    }
+    this.pendingPayload = null;
+
+    this.sendActivity(track, status, currentTime);
+  }
+
+  /** Throttle edilen guncellemeyi kuyruga al; kuyruk daima EN SON durumu tasir. */
+  private queuePending(track: Track, status: PlaybackStatus, currentTime: number): void {
+    this.pendingPayload = { track, status, currentTime };
+    if (this.throttleTimeout) return;
+    const wait = Math.max(0, 1500 - (Date.now() - this.lastActivitySentTime));
+    this.throttleTimeout = setTimeout(() => {
+      this.throttleTimeout = null;
+      const p = this.pendingPayload;
+      this.pendingPayload = null;
+      if (p) this.sendActivity(p.track, p.status, p.currentTime);
+    }, wait);
+  }
+
+  private async sendActivity(track: Track | null, status: PlaybackStatus, currentTime: number = 0): Promise<void> {
+    if (!this.rpc || !this.isConnected || !track || status === 'stopped') return;
+
+    try {
+      // Rate-limit sayaci GONDERIM DENEMESI aninda yukselir (Discord limiti denemeye sayar);
+      // lastSent* muhurleri yalniz BAŞARILI setActivity sonrasi yazilir ki hatali payload
+      // sonraki guncellemede otomatik yeniden denenmis olsun.
+      this.lastActivitySentTime = Date.now();
+
+      const isPlaying = status === 'playing';
+      const safeTitle = (track.title || 'Vodoo Music').slice(0, 128);
+      const artist = (track.artist || 'Vodoo Audio').trim();
+      const album = (track.album || '').trim();
+
+      const fmtTime = (sec: number) => {
+        const m = Math.floor(Math.max(0, sec) / 60);
+        const s = Math.floor(Math.max(0, sec) % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+      };
+      const curFormatted = fmtTime(currentTime);
+      const durFormatted = fmtTime(track.duration || 0);
+
+      const safeState = isPlaying
+        ? (album ? `by ${artist} • ${album}` : `by ${artist}`).slice(0, 128)
+        : (durFormatted !== '0:00'
+            ? `⏸️ Duraklatıldı (${curFormatted} / ${durFormatted}) • by ${artist}`
+            : `⏸️ Duraklatıldı • by ${artist}`).slice(0, 128);
+
+      const nowMs = Date.now();
+      const curSec = Math.max(0, Math.floor(currentTime));
+      const durSec = Math.max(0, Math.floor(track.duration || 0));
+
+      let startTimestamp: number | undefined;
+      let endTimestamp: number | undefined;
+
+      if (isPlaying) {
+        startTimestamp = nowMs - (curSec * 1000);
+        if (durSec > 0 && durSec > curSec) {
+          endTimestamp = startTimestamp + (durSec * 1000);
+        }
+      }
+
+      // Kapak resmi: Parcanin album kapi (HTTPS) dogrudan Discord Media Proxy tarafindan islenir.
+      // Eski kayitlardaki imzali googleusercontent adresleri zamanla 404 verir;
+      // kalici ytimg adresine cevrilir (ayni sorun backend'de de duzeltildi).
+      let cover = (track.thumbnail || '').trim();
+      const defaultLogo = 'https://cdn.discordapp.com/icons/1569579754565148783/0b9fd504cded5e6afcec6a552bf832ec.png';
+      if (/googleusercontent\.com/.test(cover) && track.id) {
+        cover = `https://i.ytimg.com/vi/${track.id}/hqdefault.jpg`;
+      }
+      const largeImage = /^https:\/\//.test(cover) ? cover : defaultLogo;
+
+      // Discord limiti: secrets (party/join) AYNI ANDA buttons ile GONDERILEMEZ
+      // ("secrets cannot currently be sent with buttons") -> tamamini reddederdi.
+      // Etkilesim butonlarda (Dinle + Discord daveti); GitHub linki hover metninde.
+      const buttons: { label: string; url: string }[] = [
+        { label: '✨ Dinle • Vodoo Music', url: `https://vodoomusic.vercel.app/play?id=${track.id}` }
+      ];
+      if (DISCORD_INVITE_URL) {
+        buttons.push({ label: '💜 Discord Sunucusu', url: DISCORD_INVITE_URL });
+      }
+
+      const assets = {
+        large_image: largeImage,
+        large_text: `${(album || track.title || 'Vodoo Music').slice(0, 60)} • github.com/mrcbrbn5361/VodoMusic`.slice(0, 128),
+        small_image: defaultLogo,
+        small_text: isPlaying ? 'Çalıyor • Vodoo Music' : '⏸️ Duraklatıldı • Vodoo Music'
+      };
+
+      const trackId = track.id;
+
+      if (!isPlaying) {
+        // 4) Önbellek Temizliği (Clear Cache): Discord'un inatçı sayacını kırmak için eskisini temizle
+        try {
+          await this.rpc.clearActivity();
+        } catch {}
+
+        // 3) Kök Çözüm (Temiz Obje): startTimestamp veya endTimestamp KESİNLİKLE İÇERMEYEN sıfır obje
+        const pauseActivity: any = {
+          type: 2, // 2 = Listening to -> Discord profilinde "Vodoo Music Dinliyor"
+          details: safeTitle,
+          state: safeState,
+          assets,
+          buttons,
+          instance: true
+        };
+
+        const sendPromise = (this.rpc as any).request
+          ? (this.rpc as any).request('SET_ACTIVITY', { pid: process.pid, activity: pauseActivity })
+          : this.rpc.setActivity({
+              details: safeTitle,
+              state: safeState,
+              largeImageKey: largeImage,
+              largeImageText: assets.large_text,
+              smallImageKey: defaultLogo,
+              smallImageText: assets.small_text,
+              instance: true,
+              buttons
+            });
+
+        await sendPromise;
+        this.lastSentTrackId = trackId;
+        this.lastSentStatus = status;
+        this.lastSentCurrentTime = currentTime;
+        this.lastSentDuration = track.duration || 0;
+        console.log(`[DiscordRPC] ⏸️ Pause activity set (clean cache): "${safeTitle}" - ${safeState}`);
+      } else {
+        // Çalma durumu: Canlı sayaç için startTimestamp ve endTimestamp ilet
+        const playActivity: any = {
+          type: 2, // 2 = Listening to -> Discord profilinde "Vodoo Music Dinliyor"
+          details: safeTitle,
+          state: safeState,
+          timestamps: (startTimestamp || endTimestamp) ? {
+            ...(startTimestamp ? { start: startTimestamp } : {}),
+            ...(endTimestamp ? { end: endTimestamp } : {})
+          } : undefined,
+          assets,
+          buttons,
+          instance: false
+        };
+
+        const sendPromise = (this.rpc as any).request
+          ? (this.rpc as any).request('SET_ACTIVITY', { pid: process.pid, activity: playActivity })
+          : this.rpc.setActivity({
+              details: safeTitle,
+              state: safeState,
+              startTimestamp,
+              endTimestamp,
+              largeImageKey: largeImage,
+              largeImageText: assets.large_text,
+              smallImageKey: defaultLogo,
+              smallImageText: assets.small_text,
+              instance: false,
+              buttons
+            });
+
+        await sendPromise;
+        this.lastSentTrackId = trackId;
+        this.lastSentStatus = status;
+        this.lastSentCurrentTime = currentTime;
+        this.lastSentDuration = track.duration || 0;
+        console.log(`[DiscordRPC] 🎵 Activity updated (Listening to): "${safeTitle}" - ${safeState} (${status})`);
+      }
+    } catch (e: any) {
+      console.warn('[DiscordRPC] setActivity failed:', e?.message || e);
+    }
+  }
+
+  public clear(): void {
+    this.lastSentTrackId = undefined;
+    this.lastSentStatus = 'stopped';
+    if (this.throttleTimeout) {
+      clearTimeout(this.throttleTimeout);
+      this.throttleTimeout = null;
+    }
+    this.pendingPayload = null;
+
+    if (this.rpc && this.isConnected) {
+      try {
+        this.rpc.clearActivity().catch(() => {});
+      } catch {}
+    }
+  }
+
+  public destroy(): void {
+    this.stopReconnectLoop();
+    this.clear();
+    this.connectGeneration++;
+    if (this.rpc) {
+      try {
+        this.rpc.destroy();
+      } catch (e) {}
+      this.rpc = null;
+    }
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.emitStatus();
+  }
+}
