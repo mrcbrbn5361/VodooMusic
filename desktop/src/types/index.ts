@@ -18,6 +18,13 @@ export interface Track {
 
 export type PlaybackStatus = 'playing' | 'paused' | 'stopped';
 
+export interface UpdaterStatus {
+  state: 'checking' | 'available' | 'none' | 'downloading' | 'ready' | 'error';
+  version?: string;
+  percent?: number;
+  message?: string;
+}
+
 export interface BotServerState {
   app: string;
   version: string;

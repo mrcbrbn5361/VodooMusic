@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, shell, screen, clipboard } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, screen, clipboard, dialog } from 'electron';
 import * as path from 'path';
+import { autoUpdater } from 'electron-updater';
 import { BotServer } from './api/bot-server.js';
 import { DiscordRpcManager } from './api/discord-rpc.js';
 import { InnerTubeService } from './api/innertube.js';
@@ -7,7 +8,7 @@ import { AudioEngine } from './api/audio-engine.js';
 import { AppStore } from './store/index.js';
 import { PartyService } from './api/party.js';
 import { getAnonymizedDeviceId } from './utils/deviceInfo.js';
-import type { Track, PlaybackStatus, AppSettings, FollowedArtist } from '../types/index.js';
+import type { Track, PlaybackStatus, AppSettings, FollowedArtist, UpdaterStatus } from '../types/index.js';
 
 // Marka adi Electron varsayilani (package.json name) yerine urun adi olur;
 // app.getPath('userData') yolunu da belirler (%APPDATA%\Vodoo Music).
@@ -213,6 +214,43 @@ app.on('open-url', (event, url) => {
 // quitApplication icindeki app.quit() ve destroy() ile yeniden tetikleniyordu
 // (Maximum call stack size exceeded -> ani kapanis).
 let quitting = false;
+
+// Otomatik guncelleme: yalnizca paketlenmis derlemede calisir (GitHub Releases).
+// Indirme sessiz, kurulum kullaniciya sorulur; "Sonra" derse cikista kurulur.
+function setupAutoUpdater(): void {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  const send = (status: UpdaterStatus) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:status', status);
+    }
+  };
+
+  autoUpdater.on('checking-for-update', () => send({ state: 'checking' }));
+  autoUpdater.on('update-available', (info) => send({ state: 'available', version: info.version }));
+  autoUpdater.on('update-not-available', () => send({ state: 'none' }));
+  autoUpdater.on('download-progress', (p) => send({ state: 'downloading', percent: Math.round(p.percent) }));
+  autoUpdater.on('update-downloaded', (info) => {
+    send({ state: 'ready', version: info.version });
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    void dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      buttons: ['Şimdi yeniden başlat', 'Sonra'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Güncelleme hazır',
+      message: `Vodoo Music v${info.version} indirildi.`,
+      detail: 'Şimdi yeniden başlatmak ister misin? "Sonra" dersen güncelleme uygulama kapanınca kurulur.'
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+  });
+  autoUpdater.on('error', (err) => send({ state: 'error', message: String(err?.message || err) }));
+
+  setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}); }, 8000);
+}
 
 function quitApplication(): void {
   if (quitting) return;
@@ -510,6 +548,9 @@ app.whenReady().then(async () => {
       mainWindow.webContents.send('discord:rpc-status', s);
     }
   });
+
+  // Otomatik guncelleme kontrolu (paketli derleme)
+  setupAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -913,3 +954,4 @@ ipcMain.handle('clipboard:writeText', (_event, text: string) => {
 });
 
 ipcMain.handle('discord:getRpcStatus', () => discordRpc.getStatus());
+ipcMain.handle('updater:install', () => { autoUpdater.quitAndInstall(); });

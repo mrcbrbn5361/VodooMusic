@@ -1217,6 +1217,19 @@ async function refreshRpcStatus() {
   } catch {}
 }
 window.api?.onRpcStatus?.((s: { connected: boolean; enabled: boolean }) => paintRpcStatus(s));
+
+// Otomatik guncelleme bildirimleri (paketli surumde main'den gelir)
+window.api?.onUpdaterStatus?.((s) => {
+  if (s.state === 'available') {
+    showToast(`⬇️ Yeni sürüm bulundu (v${s.version}) — indiriliyor…`);
+  } else if (s.state === 'downloading' && typeof s.percent === 'number' && s.percent % 25 === 0) {
+    showToast(`⬇️ Güncelleme indiriliyor: %${s.percent}`);
+  } else if (s.state === 'ready') {
+    showToast(`✅ Güncelleme hazır (v${s.version}) — yeniden başlatınca kurulacak`);
+  } else if (s.state === 'error') {
+    console.warn('[Updater]', s.message);
+  }
+});
 if (settingAdblock) {
   settingAdblock.addEventListener('change', () => {
     window.api?.updateSettings({ adblockEnabled: settingAdblock.checked });

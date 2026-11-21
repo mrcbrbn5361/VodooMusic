@@ -1,6 +1,6 @@
 {
   "name": "vodoo-music-desktop",
-  "version": "1.0.3",
+  "version": "1.0.0",
   "description": "Vodoo Music - Premium Luxury Music Streaming for Windows & macOS",
   "main": "dist/main/main.js",
   "author": "Miraç Teksaslıoğlu",
@@ -8,11 +8,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mrcbrbn5361/VodoMusic.git"
-  },
-  "publish": {
-    "provider": "github",
-    "owner": "mrcbrbn5361",
-    "repo": "VodoMusic"
   },
   "engines": {
     "node": ">=18"
@@ -31,7 +26,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.main.json"
   },
   "dependencies": {
-    "discord-rpc": "^4.0.1"
+    "discord-rpc": "^4.0.1",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
@@ -43,6 +39,13 @@
   },
   "build": {
     "npmRebuild": false,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "mrcbrbn5361",
+        "repo": "VodoMusic"
+      }
+    ],
     "appId": "com.vodoo.music",
     "productName": "Vodoo Music",
     "copyright": "Copyright © 2026 Vodoo Music",

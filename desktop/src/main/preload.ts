@@ -96,7 +96,13 @@ const api = {
     ipcRenderer.invoke('discord:getRpcStatus'),
   onRpcStatus: (callback: (s: { connected: boolean; enabled: boolean }) => void) => {
     ipcRenderer.on('discord:rpc-status', (_event, s) => callback(s));
-  }
+  },
+
+  // Otomatik guncelleme durumu
+  onUpdaterStatus: (callback: (s: { state: 'checking' | 'available' | 'none' | 'downloading' | 'ready' | 'error'; version?: string; percent?: number; message?: string }) => void) => {
+    ipcRenderer.on('updater:status', (_event, s) => callback(s));
+  },
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('updater:install')
 };
 
 contextBridge.exposeInMainWorld('api', api);
