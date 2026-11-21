@@ -1,9 +1,9 @@
 {
   "name": "vodoo-music-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Vodoo Music - Premium Luxury Music Streaming for Windows & macOS",
   "main": "dist/main/main.js",
-  "author": "Miraç Teksaslıoğlu",
+  "author": "MiraÃ§ TeksaslÄ±oÄŸlu",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -48,7 +48,7 @@
     ],
     "appId": "com.vodoo.music",
     "productName": "Vodoo Music",
-    "copyright": "Copyright © 2026 Vodoo Music",
+    "copyright": "Copyright Â© 2026 Vodoo Music",
     "directories": {
       "output": "release"
     },
@@ -90,7 +90,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Vodoo Music",
-      "artifactName": "Vodoo-Music-Setup-${version}-win-x64.${ext}",
+      "include": "build/installer.nsh",
+      "artifactName": "Vodoo-Music-Setup-win-x64.${ext}",
       "installerLanguages": [
         "tr_TR",
         "en_US"
@@ -107,7 +108,7 @@
       "uninstallerIcon": "assets/icon.ico"
     },
     "portable": {
-      "artifactName": "Vodoo-Music-Portable-${version}-win-x64.${ext}",
+      "artifactName": "Vodoo-Music-Portable-win-x64.${ext}",
       "requestExecutionLevel": "user"
     },
     "mac": {
@@ -127,14 +128,14 @@
       ],
       "icon": "assets/icon.png",
       "category": "public.app-category.music",
-      "artifactName": "Vodoo-Music-${version}-mac-universal.${ext}",
+      "artifactName": "Vodoo-Music-mac-universal.${ext}",
       "minimumSystemVersion": "10.15.0",
       "hardenedRuntime": false,
       "identity": null,
       "gatekeeperAssess": false
     },
     "dmg": {
-      "artifactName": "Vodoo-Music-${version}-mac-universal.${ext}",
+      "artifactName": "Vodoo-Music-mac-universal.${ext}",
       "title": "Vodoo Music",
       "contents": [
         {

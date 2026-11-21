@@ -36,3 +36,7 @@ release-notes-*.md
 .DS_Store
 Thumbs.db
 
+
+.vercel
+/.env*
+!scripts/discord-bot/.env.example
