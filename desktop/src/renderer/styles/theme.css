@@ -470,7 +470,7 @@ body {
 
 .top-result-badge {
   align-self: flex-start;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.4px;
   color: #050303;
@@ -594,6 +594,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Tiklama alani >=28px (gorsel boyut degismez: negatif margin) */
+  padding: 4px;
+  margin: -4px;
+  border-radius: 8px;
+}
+
+.like-btn:focus-visible,
+.ctrl-btn:focus-visible,
+.volume-btn:focus-visible {
+  outline: 2px solid var(--accent-ember);
+  outline-offset: 2px;
 }
 
 .like-btn:hover {
@@ -633,6 +644,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Tiklama alani >=28px (gorsel boyut degismez) */
+  padding: 5px;
+  margin: -5px;
+  border-radius: 8px;
 }
 
 .ctrl-btn:hover {
@@ -857,24 +872,32 @@ body {
   cursor: pointer;
   display: flex;
   align-items: center;
+  padding: 5px;
+  margin: -5px;
+  border-radius: 8px;
 }
 .volume-btn:hover {
   color: #E8C6A3;
 }
 
+/* Ince gorunen ray + 18px tiklama alani (suruklemesi kolay) */
 .volume-slider {
   -webkit-appearance: none;
   width: 90px;
-  height: 5px;
+  height: 18px;
   background: linear-gradient(to right, var(--accent-red) 0%, var(--accent-ember) 80%, rgba(232,198,163, 0.15) 80%, rgba(232,198,163, 0.15) 100%);
+  background-size: 100% 5px;
+  background-position: center;
+  background-repeat: no-repeat;
   border-radius: 999px;
   outline: none;
   cursor: pointer;
-  transition: background 0.1s ease, height 0.2s ease;
+  transition: background 0.1s ease;
 }
 
-.volume-slider:hover {
-  height: 7px;
+.volume-slider:focus-visible {
+  outline: 2px solid var(--accent-ember);
+  outline-offset: 2px;
 }
 
 .volume-slider::-webkit-slider-thumb {

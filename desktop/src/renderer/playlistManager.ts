@@ -27,10 +27,10 @@ export class PlaylistManager {
         <div class="card-thumb-wrap">
           <img src="${esc(item.thumbnail || './logo.png')}" data-thumb="${esc(item.thumbnail || '')}" class="card-thumb" alt="${esc(item.title)}" loading="lazy" onerror="vodooThumb(this)" />
           <div class="card-play-overlay"><span class="browse-icon">📀</span></div>
-          <button class="playlist-delete" title="Listeyi sil">🗑</button>
+          <button class="playlist-delete" title="Listeyi sil" aria-label="Listeyi sil">🗑</button>
         </div>
-        <div class="card-title">${esc(item.title)}</div>
-        <div class="card-artist">${esc(item.subtitle)}</div>
+        <div class="card-title" title="${esc(item.title)}">${esc(item.title)}</div>
+        <div class="card-artist" title="${esc(item.subtitle)}">${esc(item.subtitle)}</div>
       </div>`;
   }
 

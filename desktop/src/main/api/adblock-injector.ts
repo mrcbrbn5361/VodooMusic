@@ -193,6 +193,16 @@ export const ADBLOCK_INJECTION_JS = `(() => {
             if (ov && ov.offsetParent !== null) adAuthoritative = true;
           } catch {}
         }
+        // 2026-11 canli test: getAdState() reklam sirasinda -1 donuyor ve
+        // skipAd yok. Guvenilir kanit sure uyusmazligi: medya suresi icerik
+        // suresinden cok kisa ise gercek reklamdir (icerik asla sarilmaz).
+        if (!adAuthoritative && v) {
+          try {
+            const contentDur = mp && typeof mp.getDuration === 'function' ? mp.getDuration() : 0;
+            const vd3 = v.duration;
+            if (contentDur > 0 && vd3 > 0 && vd3 < 120 && vd3 < contentDur - 10) adAuthoritative = true;
+          } catch {}
+        }
 
         // Duraklatilmis icerige asla dokunma: seek/speed degisimi "sarki bitti"
         // sinyali uretip kendiliginden sira ilerlemesine yol acmasin.

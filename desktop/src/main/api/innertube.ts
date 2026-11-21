@@ -1,3 +1,5 @@
+﻿import * as https from 'node:https';
+
 export interface Song {
   id: string;
   title: string;
@@ -9,7 +11,7 @@ export interface Song {
   album?: string;
   albumId?: string;
   isVideo?: boolean;
-  /** YouTube icerik turu (MUSIC_VIDEO_TYPE_* / 'video' gibi) — tur filtresi icin */
+  /** YouTube icerik turu (MUSIC_VIDEO_TYPE_* / 'video' gibi) â€” tur filtresi icin */
   type?: string;
 }
 
@@ -42,12 +44,46 @@ export interface BrowseDetail {
 export interface PlayerResult extends Song {
   streamUrl?: string;
   lyrics?: string;
-  /** true = reklam ses akışına gömülü (reklam destekli parça) */
+  /** true = reklam ses akÄ±ÅŸÄ±na gÃ¶mÃ¼lÃ¼ (reklam destekli parÃ§a) */
   isAdSupported?: boolean;
 }
 
 const BASE_URL = 'https://music.youtube.com/youtubei/v1';
 const AD_SUPPORT_CACHE_MS = 90 * 1000;
+
+/**
+ * Cerezsiz JSON POST.
+ * NEDEN fetch DEGIL: Electron'un main-process `fetch`'i uygulama oturumunun
+ * cerezlerini tasir; YouTube bunu gorup ANDROID_VR istemcisinde LOGIN_REQUIRED
+ * donduruyor ("ses gec geliyor" kok nedeni). node:https cerez gondermez.
+ */
+function postJson(
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs = 10000
+): Promise<{ status: number; json: any }> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      { method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) } },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode || 0, json: JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+    );
+    req.setTimeout(timeoutMs, () => { req.destroy(new Error('request timeout')); });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
 
 export class InnerTubeService {
   /** videoId -> { at, isAdSupported } (kisa sureli onbellek) */
@@ -71,7 +107,7 @@ export class InnerTubeService {
    */
   public async findCleanSource(videoId: string, title: string, artist: string, duration = 0): Promise<string | null> {
     if (!videoId || !title) return null;
-    const clean = title.replace(/\s*[([][^)\]]*[)\]]\s*$/g, '').replace(/\s*[-–|]\s*(official|video|lyrics?|audio)\s*$/i, '').trim();
+    const clean = title.replace(/\s*[([][^)\]]*[)\]]\s*$/g, '').replace(/\s*[-â€“|]\s*(official|video|lyrics?|audio)\s*$/i, '').trim();
     const queries = [`${clean} ${artist || ''}`.trim()];
     if (artist) queries.push(`${artist} ${clean}`.trim());
 
@@ -90,7 +126,7 @@ export class InnerTubeService {
       seen.add(c.id);
       if (c.isVideo) continue;
 
-      // (a) baslik: normalize ESIT olmali (substring degil — "Ask" / "Ask Olsun" karismamali)
+      // (a) baslik: normalize ESIT olmali (substring degil â€” "Ask" / "Ask Olsun" karismamali)
       if (this.normalizeTitle(c.title) !== wantTitle) continue;
 
       // (b) sure: ayni kayit olmali (canli/remix kayitlari elenir)
@@ -233,7 +269,7 @@ export class InnerTubeService {
 
     const col0 = r.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text;
     const col1 = r.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text;
-    const title = this.getText(col0) || 'İsimsiz Parça';
+    const title = this.getText(col0) || 'Ä°simsiz ParÃ§a';
     let artist = this.getText(col1) || 'Vodoo Music';
 
     let duration = 0;
@@ -246,7 +282,7 @@ export class InnerTubeService {
         duration = this.parseDuration(parts[durIdx]);
         parts.splice(durIdx, 1);
       }
-      const nonMeta = parts.filter(p => !/^(video|ÅŸarkÄ±|song|track|episode|bÃ¶lÃ¼m|album|albÃ¼m)$/i.test(p) && !/\bgÃ¶rÃ¼ntÃ¼leme\b|\bviews\b/i.test(p));
+      const nonMeta = parts.filter(p => !/^(video|Ã…Å¸arkÃ„Â±|song|track|episode|bÃƒÂ¶lÃƒÂ¼m|album|albÃƒÂ¼m)$/i.test(p) && !/\bgÃƒÂ¶rÃƒÂ¼ntÃƒÂ¼leme\b|\bviews\b/i.test(p));
       if (nonMeta.length >= 1) {
         artist = nonMeta[0];
         if (nonMeta.length >= 2) album = nonMeta[1];
@@ -301,7 +337,7 @@ export class InnerTubeService {
 
       // Sanatci / album / oynatma listesi afisleri sadece 'videos' params'li
       // istekte geliyor. Bu yuzden iki istek PARALEL atilir: sarkilar yalnizca
-      // songs isteğinden, browse kartlari videos isteğinden (sarki listesine
+      // songs isteÄŸinden, browse kartlari videos isteÄŸinden (sarki listesine
       // hicbir sey karismaz).
       const browseBody: Record<string, any> = { query, params: 'EgWKAQIQAWoUEAMQCBAJEAoQBQ%3D%3D' };
       const needBrowse = !includeVideos && filter === 'songs';
@@ -404,11 +440,11 @@ export class InnerTubeService {
     if (/^UC[\w-]{20,}$/.test(browseId)) type = 'artist';
     else if (/^(MPRE|MPRA|MPSPPL)/.test(browseId)) type = 'album';
     // Alt baslik daha guvenilir: "Album", "Single", "EP", "Playlist", "Artist"
-    if (/playlist|çalmak listesi|oynatma listesi/i.test(subtype)) type = 'playlist';
+    if (/playlist|Ã§almak listesi|oynatma listesi/i.test(subtype)) type = 'playlist';
     else if (/album|single|\bep\b/i.test(subtype)) type = 'album';
     else if (/artist|sanat/i.test(subtype)) type = 'artist';
 
-    const cnt = subtitle.match(/(\d[\d.,]*)\s*(songs?|şarkı|parça)/i);
+    const cnt = subtitle.match(/(\d[\d.,]*)\s*(songs?|ÅŸarkÄ±|parÃ§a)/i);
     const songCount = cnt ? parseInt(cnt[1].replace(/[.,]/g, ''), 10) : undefined;
     const thumbs = r.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
     const thumbnail = this.getThumbnail(thumbs) || './logo.png';
@@ -488,7 +524,7 @@ export class InnerTubeService {
       const subtitle = this.getText(m.subtitle);
       const thumbs = m.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails;
       const thumbnail = this.getThumbnail(thumbs);
-      const cnt = subtitle.match(/(\d[\d.,]*)\s*(şarkı|songs|parça)/i);
+      const cnt = subtitle.match(/(\d[\d.,]*)\s*(ÅŸarkÄ±|songs|parÃ§a)/i);
       const songCount = cnt ? parseInt(cnt[1].replace(/\./g, ''), 10) : undefined;
 
       let type: BrowseItem['type'] = 'playlist';
@@ -516,9 +552,9 @@ export class InnerTubeService {
     });
     // TUR FILTRESI: reklam/sponsorlu, canli, short, bolum/podcast ve video
     // etiketli oge arama sonucunda yer almaz. NOT: "ad" etiketi ASCII \b ile
-    // aranmaz — JS'te "ı" \w sayilmadigindan "adim/adin" gibi Turkce
+    // aranmaz â€” JS'te "Ä±" \w sayilmadigindan "adim/adin" gibi Turkce
     // kelimelere de carpiyordu; Unicode sinirli lookaround kullanilir.
-    const JUNK = /\b(reklam|(?<![\p{L}\p{N}])ads?(?![\p{L}\p{N}])|sponsored|promoted|shorts?|live|canl[ıi]|podcast|b[öo]l[üu]m|episode|fragman|trailer|reaction|cover|remix|sped up|slowed)\b/iu;
+    const JUNK = /\b(reklam|(?<![\p{L}\p{N}])ads?(?![\p{L}\p{N}])|sponsored|promoted|shorts?|live|canl[Ä±i]|podcast|b[Ã¶o]l[Ã¼u]m|episode|fragman|trailer|reaction|cover|remix|sped up|slowed)\b/iu;
     const typeBad = (t: string) => /^(video|MUSIC_VIDEO_TYPE_)/i.test(t || '');
     const seenSongs = new Set<string>();
     const seenVideos = new Set<string>();
@@ -557,12 +593,12 @@ export class InnerTubeService {
     results.videos = results.videos.slice(0, 12);
   }
 
-  /** Turkce karakter katlama — yalnizca skorlama karsilastirmasi icin. */
+  /** Turkce karakter katlama â€” yalnizca skorlama karsilastirmasi icin. */
   private foldAscii(s: string): string {
     return String(s || '')
-      .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i')
-      .replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u')
-      .replace(/â/g, 'a').replace(/î/g, 'i').replace(/û/g, 'u');
+      .replace(/Ã§/g, 'c').replace(/ÄŸ/g, 'g').replace(/Ä±/g, 'i')
+      .replace(/Ã¶/g, 'o').replace(/ÅŸ/g, 's').replace(/Ã¼/g, 'u')
+      .replace(/Ã¢/g, 'a').replace(/Ã®/g, 'i').replace(/Ã»/g, 'u');
   }
 
   /**
@@ -571,7 +607,7 @@ export class InnerTubeService {
    *  - tam kelime eslesmesi: baslikta 1.0, sanatcida 0.9
    *  - onek eslesmesi (iki taraf da >=4 harf): baslikta 0.6, sanatcida 0.5
    * Kisa sorgular (<=3 harf) onekle eslesmez: "oha" != "tohar"/"$ohal".
-   * Hiçbir kelimesi ortusmeyen sonuc 0 alir ve listeden duser.
+   * HiÃ§bir kelimesi ortusmeyen sonuc 0 alir ve listeden duser.
    */
   private relevanceScore(qTokens: string[], qPhrase: string, title: string, artist: string): number {
     if (!qTokens.length) return 1;
@@ -653,53 +689,90 @@ export class InnerTubeService {
 
   public async getPlayer(videoId: string): Promise<PlayerResult | null> {
     try {
-      const payload = {
-        context: {
-          client: {
-            hl: 'en',
-            gl: 'US',
-            clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
-            clientVersion: '2.0'
-          }
+      // 2026-11: TVHTML5_SIMPLY_EMBEDDED_PLAYER artik tamamen kapali
+      // ("YouTube is no longer supported in this application or device").
+      // ANDROID_VR dogrudan (reklamsiz) ses akisi veriyor; birincil istemci o.
+      // TVHTML5 geriye donuk yedek olarak kalir.
+      const clients = [
+        {
+          clientName: 'ANDROID_VR',
+          clientVersion: '1.62.27',
+          ua: 'com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12; en_US; Quest 3 Build/SQ3A.220605.009.A1) gzip',
+          extra: { androidSdkVersion: 32, osName: 'Android', osVersion: '12' }
         },
-        videoId,
-        contentCheckOk: true,
-        racyCheckOk: true
-      };
+        {
+          clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
+          clientVersion: '2.0',
+          ua: 'Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version',
+          extra: {}
+        }
+      ];
 
-      const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version',
-          'Origin': 'https://www.youtube.com',
-          'Referer': 'https://www.youtube.com/'
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10000)
-      });
+      let data: any = null;
+      let bestStream = '';
+      for (const c of clients) {
+        const payload = {
+          context: {
+            client: {
+              hl: 'en',
+              gl: 'US',
+              clientName: c.clientName,
+              clientVersion: c.clientVersion,
+              ...c.extra
+            }
+          },
+          videoId,
+          contentCheckOk: true,
+          racyCheckOk: true
+        };
 
-      if (!res.ok) {
-        throw new Error(`TVHTML5 player failed: ${res.status}`);
+        let res: { status: number; json: any };
+        try {
+          res = await postJson(
+            'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
+            {
+              'Content-Type': 'application/json',
+              'User-Agent': c.ua,
+              'Origin': 'https://www.youtube.com',
+              'Referer': 'https://www.youtube.com/'
+            },
+            JSON.stringify(payload),
+            8000
+          );
+        } catch (e: any) {
+          console.warn(`[InnerTube] ${c.clientName} istegi basarisiz: ${e?.message || e}`);
+          continue;
+        }
+
+        if (res.status < 200 || res.status >= 300) continue;
+        const j: any = res.json || {};
+        const sd = j.streamingData || {};
+        const formats = [...(sd.adaptiveFormats || []), ...(sd.formats || [])];
+        const audioStreams = formats
+          .filter((f: any) => f.url && (!f.width || f.mimeType?.includes('audio')))
+          .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+        if (audioStreams[0]?.url) {
+          data = j;
+          bestStream = audioStreams[0].url;
+          break;
+        }
+        console.warn(`[InnerTube] ${c.clientName}: ses akisi yok (status=${j.playabilityStatus?.status || '?'})`);
       }
 
-      const data: any = await res.json();
+      if (!data) {
+        console.warn('[InnerTube] getPlayer: hicbir istemci ses akisi dondurmedi (' + videoId + ')');
+        return null;
+      }
+
       const vd = data.videoDetails || {};
       const sd = data.streamingData || {};
 
-      const formats = [...(sd.adaptiveFormats || []), ...(sd.formats || [])];
-      // Filter for audio streams with direct URLs
-      const audioStreams = formats
-        .filter(f => f.url && (!f.width || f.mimeType?.includes('audio')))
-        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-
-      const bestStream = audioStreams[0]?.url;
       const durationSec = parseInt(vd.lengthSeconds || '0', 10);
       const thumbnail = this.getThumbnail(vd.thumbnail?.thumbnails, videoId);
 
-      // Reklam destekli parça tespiti: bu parçalarda reklam SES AKIŞININ
-      // içine gömülüdür, arayüzü gizlemek yetmez. İşaretler:
-      //  - musicVideoType: 'MUSIC_VIDEO_TYPE_ATV' (reklamlı müzik videosu)
+      // Reklam destekli parÃ§a tespiti: bu parÃ§alarda reklam SES AKIÅININ
+      // iÃ§ine gÃ¶mÃ¼lÃ¼dÃ¼r, arayÃ¼zÃ¼ gizlemek yetmez. Ä°ÅŸaretler:
+      //  - musicVideoType: 'MUSIC_VIDEO_TYPE_ATV' (reklamlÄ± mÃ¼zik videosu)
       //  - adFormats / adStreamData / playerAds / adPlacements
       //  - mediaCommonConfig.mediaUstreamerRequestConfig (SABR reklam yolu)
       const isAdSupported = !!(vd.musicVideoType
@@ -717,7 +790,7 @@ export class InnerTubeService {
 
       return {
         id: videoId,
-        title: vd.title || 'Bilinmeyen Şarkı',
+        title: vd.title || 'Bilinmeyen ÅarkÄ±',
         artist: vd.author || 'Vodoo Music',
         thumbnail: thumbnail || './logo.png',
         duration: durationSec,
@@ -732,9 +805,9 @@ export class InnerTubeService {
   }
 
   public async getExplore(): Promise<Song[]> {
-    // Curated high quality trending music (relevance=false: keşfet sorgusu
+    // Curated high quality trending music (relevance=false: keÅŸfet sorgusu
     // gercek bir arama degil, raf listesi; skor suzmesi listeyi bosaltir)
-    const res = await this.search('Trend Türkçe Pop Müzik', 'songs', false, false);
+    const res = await this.search('Trend TÃ¼rkÃ§e Pop MÃ¼zik', 'songs', false, false);
     if (res.songs.length >= 8) {
       return res.songs.slice(0, 24);
     }
@@ -753,7 +826,7 @@ export class InnerTubeService {
     for (const item of items) {
       const r = item?.playlistPanelVideoRenderer;
       if (!r || !r.videoId) continue;
-      if (r.videoId === videoId) continue; // Ã‡almakta olan ÅŸarkÄ±yÄ± atla
+      if (r.videoId === videoId) continue; // Ãƒâ€¡almakta olan Ã…Å¸arkÃ„Â±yÃ„Â± atla
 
       const title = this.getText(r.title) || 'Vodoo Track';
       let artist = this.getText(r.longBylineText) || this.getText(r.shortBylineText) || 'Vodoo Audio';
@@ -801,7 +874,7 @@ export class InnerTubeService {
       }
     }
 
-    // Fallback: Eğer next boş dönerse popüler parçalardan yedek liste getir
+    // Fallback: EÄŸer next boÅŸ dÃ¶nerse popÃ¼ler parÃ§alardan yedek liste getir
     const fallback = await this.getExplore();
     return fallback.filter(s => s.id !== videoId && this.isListenable(s));
   }
@@ -814,9 +887,11 @@ export class InnerTubeService {
     if (!t || !t.id || !t.title) return false;
     if (t.isVideo) return false;
     if (/^(video|MUSIC_VIDEO_TYPE_)/i.test(String(t.type || ''))) return false;
-    const junk = /\b(reklam|ad\b|ads?\b|sponsored|promoted|shorts?|live|canlı|podcast|bölüm|episode|fragman|trailer|reaction|sped up|slowed)\b/i;
+    const junk = /\b(reklam|ad\b|ads?\b|sponsored|promoted|shorts?|live|canlÄ±|podcast|bÃ¶lÃ¼m|episode|fragman|trailer|reaction|sped up|slowed)\b/i;
     if (junk.test(`${t.title} ${t.artist || ''} ${t.album || ''}`)) return false;
     return true;
   }
 }
+
+
 

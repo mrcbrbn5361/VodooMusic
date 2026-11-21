@@ -113,13 +113,13 @@ export function renderSongCardHtml(track: Track): string {
         <img src="${esc(track.thumbnail || './logo.png')}" data-thumb="${esc(track.thumbnail || '')}" data-vid="${esc(track.id)}" class="card-thumb" alt="${esc(track.title)}" loading="lazy" onerror="vodooThumb(this)" />
         ${badge}
         ${durBadge}
-        <button class="card-queue-btn" data-qid="${esc(track.id)}" title="Sıraya ekle">＋</button>
+        <button class="card-queue-btn" data-qid="${esc(track.id)}" title="Sıraya ekle" aria-label="Sıraya ekle">＋</button>
         <div class="card-play-overlay">
           <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </div>
       </div>
-      <div class="card-title">${esc(track.title)}</div>
-      <div class="card-artist">${esc(track.artist)}</div>
+      <div class="card-title" title="${esc(track.title)}">${esc(track.title)}</div>
+      <div class="card-artist" title="${esc(track.artist)}">${esc(track.artist)}</div>
     </div>`;
 }
 
@@ -151,8 +151,8 @@ export function renderBrowseCardHtml(item: BrowseCard): string {
         <img src="${esc(item.thumbnail || './logo.png')}" data-thumb="${esc(item.thumbnail || '')}" class="card-thumb" alt="${esc(item.title)}" loading="lazy" onerror="vodooThumb(this)" />
         <div class="card-play-overlay"><span class="browse-icon">${icon}</span></div>
       </div>
-      <div class="card-title">${esc(item.title)}</div>
-      <div class="card-artist">${esc(item.subtitle || (item.type === 'artist' ? 'Sanatçı' : item.type === 'album' ? 'Albüm' : 'Oynatma listesi'))}</div>
+      <div class="card-title" title="${esc(item.title)}">${esc(item.title)}</div>
+      <div class="card-artist" title="${esc(item.subtitle || (item.type === 'artist' ? 'Sanatçı' : item.type === 'album' ? 'Albüm' : 'Oynatma listesi'))}">${esc(item.subtitle || (item.type === 'artist' ? 'Sanatçı' : item.type === 'album' ? 'Albüm' : 'Oynatma listesi'))}</div>
     </div>`;
 }
 

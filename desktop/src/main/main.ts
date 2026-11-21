@@ -395,6 +395,11 @@ app.whenReady().then(async () => {
     }
     // Autoplay / Radio track transition detection
     // (reklam oynarken adopt YOK: reklam videosu parca sanilip kuyruk/bot kirlenmez)
+    // Isıtma (prewarm) sirasinda sayfa kendi kendine video oynatabilir: hicbir
+    // parca ISTENMEDIYSE (currentTrack ve pendingVideoId yok) adopt ETME.
+    if (playback.videoId && !playback.isAd && !currentTrack && !pendingVideoId) {
+      return;
+    }
     if (playback.videoId && !playback.isAd && (!currentTrack || currentTrack.id !== playback.videoId)) {
       // Prewarm'da bekleyen duraklatilmis videoyu parca sanma (henuz hic calinmadiysa)
       if (!currentTrack && playback.paused) {
